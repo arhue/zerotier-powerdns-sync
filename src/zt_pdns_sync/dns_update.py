@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import time
 from dataclasses import dataclass
 
 import dns.message
@@ -47,11 +48,28 @@ class DNSUpdater:
         self.zone = self._find_zone()
 
     def _query(self, qname: dns.name.Name, rdtype: str) -> dns.message.Message:
+        """Query the server: two short UDP tries, then TCP.
+
+        A single lost packet shouldn't cost a whole sync round (seen right after the
+        container starts, before its network is fully up).
+        """
         q = dns.message.make_query(qname, rdtype)
-        try:
-            return dns.query.udp(q, self.server, port=self.port, timeout=self.timeout)
-        except Exception as e:
-            raise DNSUpdateError(f"cannot query {self.server}: {e}") from e
+        attempts = [
+            lambda: dns.query.udp_with_fallback(q, self.server, port=self.port, timeout=3)[0],
+            lambda: dns.query.udp_with_fallback(q, self.server, port=self.port, timeout=3)[0],
+            lambda: dns.query.tcp(q, self.server, port=self.port, timeout=self.timeout),
+        ]
+        return self._retry(attempts, f"cannot query {self.server}")
+
+    @staticmethod
+    def _retry(attempts, error: str):
+        for i, attempt in enumerate(attempts):
+            try:
+                return attempt()
+            except Exception as e:
+                if i == len(attempts) - 1:
+                    raise DNSUpdateError(f"{error}: {e}") from e
+                time.sleep(1)
 
     def _find_zone(self) -> dns.name.Name:
         """The zone apex that contains the domain (e.g. zt.priolkar.com is inside priolkar.com)."""
@@ -131,10 +149,10 @@ class DNSUpdater:
                 update.replace(name, self.ttl, c.rdtype, *sorted(c.new))
             else:
                 update.delete(name, c.rdtype)
-        try:
-            resp = dns.query.tcp(update, self.server, port=self.port, timeout=self.timeout)
-        except Exception as e:
-            raise DNSUpdateError(f"update to {self.server} failed: {e}") from e
+        # Replacing/deleting whole rrsets is idempotent, so a retry is safe even if the
+        # first attempt was applied and only the reply was lost
+        send = lambda: dns.query.tcp(update, self.server, port=self.port, timeout=self.timeout)
+        resp = self._retry([send, send], f"update to {self.server} failed")
         if resp.rcode() != dns.rcode.NOERROR:
             raise DNSUpdateError(
                 f"server refused the update: {dns.rcode.to_text(resp.rcode())} "

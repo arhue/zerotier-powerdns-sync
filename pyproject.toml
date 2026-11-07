@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zerotier-powerdns-sync"
-version = "0.1.0"
+version = "0.3.0"
 description = "List ZeroTier network members and publish their addresses to PowerDNS"
 readme = "README.md"
 requires-python = ">=3.10"
