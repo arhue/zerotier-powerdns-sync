@@ -69,18 +69,28 @@ class DNSUpdater:
         return {rd.to_text() for rr in resp.answer if rr.rdtype == dns.rdatatype.from_text(rdtype)
                 for rd in rr}
 
-    def plan(self, members) -> list[Change]:
-        """Compare the records each named member should have with what the server has now.
+    def owner_name(self, node_id: str) -> dns.name.Name:
+        """Where the hostname a member last had is remembered: <node id>._zt.<domain> TXT."""
+        return dns.name.from_text(f"{node_id}._zt", self.domain)
 
-        Authorized members get A/AAAA records for their assigned IPs; unauthorized members
-        get theirs removed. If an authorized and an unauthorized member map to the same
-        hostname, the authorized one wins.
+    def plan(self, members) -> list[Change]:
+        """Compare the records each member should have with what the server has now.
+
+        - Authorized members with a name get A/AAAA records for their assigned IPs.
+        - Unauthorized members get the A/AAAA records at their hostname removed.
+        - If an authorized and an unauthorized member map to the same hostname, the
+          authorized one wins.
+        - Renamed members (or members whose name was cleared) get the A/AAAA records at
+          their previous hostname removed. The previous hostname is kept in a TXT record
+          per member (see owner_name), so no other state is needed.
         """
         desired: dict[str, set] = {}
+        label_of: dict[str, str] = {}
         for m in members:
             label = hostname(m.name)
             if not label:
                 continue
+            label_of[m.node_id] = label
             ips = {ipaddress.ip_address(ip) for ip in m.ips} if m.authorized else set()
             desired.setdefault(label, set()).update(ips)
 
@@ -92,6 +102,22 @@ class DNSUpdater:
                 old = self.current(fqdn, rdtype)
                 if new != old:
                     changes.append(Change(fqdn.to_text(), rdtype, old, new))
+
+        for m in sorted(members, key=lambda m: m.node_id):
+            owner = self.owner_name(m.node_id)
+            recorded = self.current(owner, "TXT")
+            previous = {v.strip('"') for v in recorded}
+            label = label_of.get(m.node_id)
+            # Old hostnames this member no longer uses and no other member now claims
+            for old_label in sorted(previous - {label} - set(desired)):
+                fqdn = dns.name.from_text(old_label, self.domain)
+                for rdtype in ("A", "AAAA"):
+                    old = self.current(fqdn, rdtype)
+                    if old:
+                        changes.append(Change(fqdn.to_text(), rdtype, old, set()))
+            wanted = {f'"{label}"'} if label else set()
+            if recorded != wanted:
+                changes.append(Change(owner.to_text(), "TXT", recorded, wanted))
         return changes
 
     def apply(self, changes: list[Change]) -> None:

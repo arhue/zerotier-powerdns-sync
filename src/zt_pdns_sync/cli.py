@@ -2,7 +2,7 @@
 
   zt-pdns-sync          print name and IPs of each authorized member
   zt-pdns-sync sync     run forever: publish A/AAAA records for authorized members and
-                        remove them for unauthorized ones (RFC 2136 + TSIG)
+                        remove them for unauthorized or renamed ones (RFC 2136 + TSIG)
 
 Configuration (environment):
   ZT_NETWORK_ID         ZeroTier network ID
@@ -76,7 +76,7 @@ def sync_forever(client: ZeroTierClient, network: str) -> int:
         try:
             if updater is None:  # retried each round until the server is reachable
                 updater = DNSUpdater(**settings)
-            members = [m for m in client.members(network) if m.name]
+            members = client.members(network)
             changes = updater.plan(members)
             for c in changes:
                 old = ", ".join(sorted(c.old)) or "-"

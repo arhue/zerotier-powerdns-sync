@@ -33,7 +33,13 @@ laptop      192.168.169.5, fd12:3456::5
 `zt-pdns-sync sync` runs continuously. Every `SYNC_INTERVAL` seconds it:
 
 - creates or updates A/AAAA records for authorized members, and
-- removes the A/AAAA records of members that are no longer authorized.
+- removes the A/AAAA records of members that are no longer authorized, and
+- removes the A/AAAA records at a member's old hostname when it is renamed (or its name
+  is cleared).
+
+To know a member's previous hostname without a database, it keeps one TXT record per
+member at `<node id>._zt.<DNS_DOMAIN>` holding the hostname it last published, e.g.
+`7ea404f268._zt.zt.example.com. TXT "laptop"`.
 
 ```sh
 export DNS_SERVER=2001:db8::53          # authoritative server that accepts updates
@@ -58,8 +64,8 @@ doesn't change on every round. Errors are logged and retried on the next round.
 
 Limitations:
 
-- Records of members that are **deleted** from the network, or **renamed**, are left in
-  place: they no longer appear in the API, and nothing is stored to remember them.
+- Records of members that are **deleted** from the network are left in place: deleted
+  members no longer appear in the API, so there is nothing to look up.
 - Removal for an unauthorized member deletes whatever A/AAAA records exist at its
   hostname, so avoid member names that collide with records managed elsewhere.
 
