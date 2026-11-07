@@ -60,7 +60,8 @@ docker run -d --restart unless-stopped --env-file zt.env \
   ghcr.io/arhue/zerotier-powerdns-sync:latest
 ```
 
-Tags: `latest` follows `main`; each release tag `vX.Y.Z` publishes `X.Y.Z` and `X.Y`.
+Tags: `latest` is the newest release; a release tag like `v0.1` publishes `0.1`; `main`
+follows the main branch.
 
 Only records that differ from what the server returns are updated, so the zone serial
 doesn't change on every round. Errors are logged and retried on the next round.
