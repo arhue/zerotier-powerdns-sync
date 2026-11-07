@@ -70,14 +70,23 @@ class DNSUpdater:
                 for rd in rr}
 
     def plan(self, members) -> list[Change]:
-        """Compare each member's A/AAAA records with what the server has now."""
-        changes = []
+        """Compare the records each named member should have with what the server has now.
+
+        Authorized members get A/AAAA records for their assigned IPs; unauthorized members
+        get theirs removed. If an authorized and an unauthorized member map to the same
+        hostname, the authorized one wins.
+        """
+        desired: dict[str, set] = {}
         for m in members:
             label = hostname(m.name)
             if not label:
                 continue
+            ips = {ipaddress.ip_address(ip) for ip in m.ips} if m.authorized else set()
+            desired.setdefault(label, set()).update(ips)
+
+        changes = []
+        for label, ips in sorted(desired.items()):
             fqdn = dns.name.from_text(label, self.domain)
-            ips = [ipaddress.ip_address(ip) for ip in m.ips]
             for rdtype, version in (("A", 4), ("AAAA", 6)):
                 new = {str(ip) for ip in ips if ip.version == version}
                 old = self.current(fqdn, rdtype)

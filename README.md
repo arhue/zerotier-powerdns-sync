@@ -30,19 +30,38 @@ laptop      192.168.169.5, fd12:3456::5
 
 ## Syncing to DNS
 
+`zt-pdns-sync sync` runs continuously. Every `SYNC_INTERVAL` seconds it:
+
+- creates or updates A/AAAA records for authorized members, and
+- removes the A/AAAA records of members that are no longer authorized.
+
 ```sh
 export DNS_SERVER=2001:db8::53          # authoritative server that accepts updates
 export DNS_DOMAIN=zt.example.com        # hostnames go under this; the zone is detected
 export TSIG_KEY_NAME=zt-dns-sync
 export TSIG_KEY_SECRET=...              # base64
-# optional: TSIG_KEY_ALGORITHM (default hmac-sha256), DNS_TTL (default 300)
+# optional: TSIG_KEY_ALGORITHM (default hmac-sha256), DNS_TTL (default 300),
+#           SYNC_INTERVAL (default 60)
 
 zt-pdns-sync sync
 ```
 
-It only sends an update when a record differs from what the server returns, so running
-it on a timer doesn't bump the zone serial needlessly. Records for members that are
-removed or renamed are not deleted yet.
+Or with Docker:
+
+```sh
+docker build -t zt-pdns-sync .
+docker run -d --restart unless-stopped --env-file zt.env zt-pdns-sync
+```
+
+Only records that differ from what the server returns are updated, so the zone serial
+doesn't change on every round. Errors are logged and retried on the next round.
+
+Limitations:
+
+- Records of members that are **deleted** from the network, or **renamed**, are left in
+  place: they no longer appear in the API, and nothing is stored to remember them.
+- Removal for an unauthorized member deletes whatever A/AAAA records exist at its
+  hostname, so avoid member names that collide with records managed elsewhere.
 
 ### PowerDNS setup
 
