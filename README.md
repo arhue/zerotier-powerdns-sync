@@ -53,12 +53,14 @@ export TSIG_KEY_SECRET=...              # base64
 zt-pdns-sync sync
 ```
 
-Or with Docker:
+Or with Docker (images for amd64 and arm64 are published to GHCR):
 
 ```sh
-docker build -t zt-pdns-sync .
-docker run -d --restart unless-stopped --env-file zt.env zt-pdns-sync
+docker run -d --restart unless-stopped --env-file zt.env \
+  ghcr.io/arhue/zerotier-powerdns-sync:latest
 ```
+
+Tags: `latest` follows `main`; each release tag `vX.Y.Z` publishes `X.Y.Z` and `X.Y`.
 
 Only records that differ from what the server returns are updated, so the zone serial
 doesn't change on every round. Errors are logged and retried on the next round.
