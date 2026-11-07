@@ -9,7 +9,7 @@ description = "List ZeroTier network members and publish their addresses to Powe
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = []
+dependencies = ["dnspython>=2.4"]
 
 [project.scripts]
 zt-pdns-sync = "zt_pdns_sync.cli:main"
