@@ -41,7 +41,12 @@ class ZeroTierClient:
     def _get(self, path: str):
         req = urllib.request.Request(
             f"{self.api_url}{path}",
-            headers={"Authorization": f"token {self.token}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"token {self.token}",
+                "Accept": "application/json",
+                # The API's edge returns 403 for the default "Python-urllib" user agent
+                "User-Agent": "zerotier-powerdns-sync",
+            },
         )
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:

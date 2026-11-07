@@ -13,21 +13,15 @@ Create an API token at <https://my.zerotier.com/account>, then:
 export ZT_NETWORK_ID=abcdef0123456789
 export ZT_API_TOKEN=...            # keep it out of shell history / git
 
-python -m zt_pdns_sync             # authorized members
-python -m zt_pdns_sync --all       # include unauthorized members
-python -m zt_pdns_sync --json
+PYTHONPATH=src python -m zt_pdns_sync     # from a checkout
+zt-pdns-sync                              # after `pip install .`
 ```
 
-Or install it: `pip install .` and run `zt-pdns-sync`.
-
-Run from a checkout without installing: `PYTHONPATH=src python -m zt_pdns_sync`.
-
-Example output:
+It prints every authorized member that has a name, with its assigned IPs:
 
 ```
-NAME       NODE ID     AUTH  IP ADDRESSES
-docker-1   a1b2c3d4e5  yes   192.168.169.21, fd12:3456::1
-laptop     0f1e2d3c4b  yes   192.168.169.50
+docker-3    192.168.169.23, fd12:3456::23
+laptop      192.168.169.5, fd12:3456::5
 ```
 
 ## License
