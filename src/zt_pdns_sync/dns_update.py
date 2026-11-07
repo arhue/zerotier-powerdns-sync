@@ -70,8 +70,8 @@ class DNSUpdater:
                 for rd in rr}
 
     def owner_name(self, node_id: str) -> dns.name.Name:
-        """Where the hostname a member last had is remembered: <node id>._zt.<domain> TXT."""
-        return dns.name.from_text(f"{node_id}._zt", self.domain)
+        """Where the hostname a member last had is remembered: <node id>.<domain> TXT."""
+        return dns.name.from_text(node_id, self.domain)
 
     def plan(self, members) -> list[Change]:
         """Compare the records each member should have with what the server has now.
@@ -82,7 +82,8 @@ class DNSUpdater:
           authorized one wins.
         - Renamed members (or members whose name was cleared) get the A/AAAA records at
           their previous hostname removed. The previous hostname is kept in a TXT record
-          per member (see owner_name), so no other state is needed.
+          per authorized member (see owner_name), so no other state is needed; it is
+          removed along with the A/AAAA records when a member is unauthorized.
         """
         desired: dict[str, set] = {}
         label_of: dict[str, str] = {}
@@ -115,7 +116,7 @@ class DNSUpdater:
                     old = self.current(fqdn, rdtype)
                     if old:
                         changes.append(Change(fqdn.to_text(), rdtype, old, set()))
-            wanted = {f'"{label}"'} if label else set()
+            wanted = {f'"{label}"'} if label and m.authorized else set()
             if recorded != wanted:
                 changes.append(Change(owner.to_text(), "TXT", recorded, wanted))
         return changes

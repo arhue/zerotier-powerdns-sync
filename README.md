@@ -38,8 +38,9 @@ laptop      192.168.169.5, fd12:3456::5
   is cleared).
 
 To know a member's previous hostname without a database, it keeps one TXT record per
-member at `<node id>._zt.<DNS_DOMAIN>` holding the hostname it last published, e.g.
-`7ea404f268._zt.zt.example.com. TXT "laptop"`.
+authorized member at `<node id>.<DNS_DOMAIN>` holding the hostname it last published,
+e.g. `7ea404f268.zt.example.com. TXT "laptop"`. It is removed together with the A/AAAA
+records when the member is unauthorized.
 
 ```sh
 export DNS_SERVER=2001:db8::53          # authoritative server that accepts updates
